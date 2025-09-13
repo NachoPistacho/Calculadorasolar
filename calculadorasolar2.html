@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Calculadora Solar — TR</title>
+<style>
+  :root{
+    --bg: #0f172a;
+    --card: #0b1220;
+    --accent: #06b6d4;
+    --muted: #94a3b8;
+    --glass: rgba(255,255,255,0.03);
+    --success: #10b981;
+    --danger: #ef4444;
+  }
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background: linear-gradient(180deg,#071029 0%, #071a2a 60%);
+    color:#e6eef8;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+    padding:24px;
+  }
+  .container{max-width:1100px;margin:0 auto;}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+  header h1{font-size:20px;margin:0}
+  header p{margin:0;color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 420px;gap:20px}
+  .card{
+    background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03);
+    padding:18px;border-radius:10px;box-shadow:0 6px 16px rgba(2,6,23,0.6)
+  }
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type="number"],input[type="text"],select{
+    width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);
+    background:var(--glass);color:inherit;font-size:14px;box-sizing:border-box;
+  }
+  .row{display:flex;gap:10px}
+  .row .col{flex:1}
+  .btn{
+    display:inline-block;padding:10px 14px;border-radius:8px;background:linear-gradient(90deg,var(--accent),#7dd3fc);
+    color:#012226;border:none;cursor:pointer;font-weight:600;
+  }
+  .results{margin-top:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .stat{background:rgba(255,255,255,0.025);padding:12px;border-radius:8px}
+  .stat h3{margin:0;font-size:18px}
+  .stat p{margin:6px 0 0;color:var(--muted);font-size:13px}
+  canvas{width:100%;height:200px;border-radius:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.03));display:block}
+  footer{margin-top:18px;color:var(--muted);font-size:13px}
+  .small{font-size:12px;color:var(--muted)}
+  .help{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;margin-top:10px}
+  .notice{background:#062230;padding:10px;border-radius:8px;color:var(--muted);font-size:13px}
+  @media(max-width:980px){ .grid{grid-template-columns:1fr} .results{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <h1>Calculadora Solar — Treball de Recerca</h1>
+      <p>Introdueix les dades i obtén una estimació de panells, bateries, cost i amortització.</p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <div class="card">
+      <h2 style="margin-top:0">Dades d'entrada</h2>
+
+      <div style="margin-bottom:12px">
+        <label>Consum elèctric anual (kWh/any)</label>
+        <input id="consumAnual" type="number" value="20000" min="0" />
+      </div>
+
+      <div class="row" style="margin-bottom:12px">
+        <div class="col">
+          <label>Percentatge d'autoconsum desitjat (%)</label>
+          <input id="percentAuto" type="number" value="80" min="0" max="100" />
+        </div>
+        <div class="col">
+          <label>Producció específica local (kWh / kWp / any)</label>
+          <input id="rendimentSpec" type="number" value="1038" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px">
+        <div class="col">
+          <label>Potència per panell (Wp)</label>
+          <input id="panelWp" type="number" value="400" />
+        </div>
+        <div class="col">
+          <label>Superfície per panell (m²)</label>
+          <input id="panelArea" type="number" value="1.85" step="0.01" />
+        </div>
+      </div>
+
+      <h3 style="margin-bottom:8px">Bateries i consum nocturn</h3>
+      <div class="row" style="margin-bottom:12px">
+        <div class="col">
+          <label>Consum nocturn mitjà (kWh / nit)</label>
+          <input id="consumNit" type="number" value="40" />
+        </div>
+        <div class="col">
+          <label>Nits d'autonomia desitjada</label>
+          <input id="nits" type="number" value="2" />
+        </div>
+      </div>
+
+      <h3 style="margin-bottom:8px">Preus i costos (editable)</h3>
+      <div class="row" style="margin-bottom:10px">
+        <div class="col">
+          <label>Preu electricitat (€/kWh)</label>
+          <input id="priceKwh" type="number" value="0.20" step="0.01" />
+        </div>
+        <div class="col">
+          <label>Cost mòdul bateria (€/mòdul)</label>
+          <input id="priceModule" type="number" value="1867.49" step="0.01" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px">
+        <div class="col">
+          <label>Capacitat mòdul bateria (kWh)</label>
+          <input id="moduleKwh" type="number" value="5.1" step="0.1" />
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center">
+        <button class="btn" id="calcBtn">Calcular</button>
+        <div class="small" style="margin-left:6px">Les xifres són aproximades.</div>
+      </div>
+
+      <div class="results" id="results" style="margin-top:14px;display:none">
+        <div class="stat">
+          <h3 id="resKw">— kWp</h3>
+          <p>Potència a instal·lar (kWp)</p>
+        </div>
+        <div class="stat">
+          <h3 id="resPanels">— panells</h3>
+          <p>Nombre de panells necessaris</p>
+        </div>
+        <div class="stat">
+          <h3 id="resArea">— m²</h3>
+          <p>Superfície aproximada</p>
+        </div>
+        <div class="stat">
+          <h3 id="resBat">— kWh</h3>
+          <p>Capacitat de bateries recomanada (kWh)</p>
+        </div>
+        <div class="stat">
+          <h3 id="resCost">— €</h3>
+          <p>Cost estimat (sense permisos)</p>
+        </div>
+        <div class="stat">
+          <h3 id="resPay">— anys</h3>
+          <p>Payback aproximat</p>
+        </div>
+      </div>
+
+      <div class="help" id="explain" style="margin-top:14px">
+        <strong>Com funciona:</strong>
+        <div class="small" style="margin-top:6px">
+          Es calcula la potència (kWp) necessària a partir del consum que vulguis cobrir i el rendiment específic. Es recomanen bateries segons consum nocturn i nits d'autonomia. Els costos i amortització són estimats.
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <h2 style="margin-top:0">Gràfics</h2>
+        <canvas id="chartProd" width="600" height="200"></canvas>
+        <div class="small" style="margin-top:8px">Producció anual estimada vs consum anual (distribuït per mesos).</div>
+      </div>
+
+      <div class="card">
+        <h2 style="margin-top:0">Detalls i export</h2>
+        <div class="notice" style="margin-bottom:10px">
+          Pots copiar els resultats o fer una captura per incloure-ho al TR.
+        </div>
+
+        <div style="margin-bottom:8px">
+          <label>Resultat resum</label>
+          <textarea id="summary" rows="6" style="width:100%;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit"></textarea>
+        </div>
+
+        <div style="display:flex;gap:10px">
+          <button id="copyBtn" class="btn">Copia resum</button>
+          <button id="downloadCSV" class="btn" style="background:linear-gradient(90deg,#34d399,#60a5fa)">Descarrega CSV</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="small">Nota: aquesta eina fa estimacions bàsiques per a treball acadèmic. Per pressupost real contacte amb instal·lador.</div>
+  </footer>
+</div>
+
+<script>
+function fmt(num, dp=0){ if(isNaN(num) || !isFinite(num)) return '-'; return Number(num.toFixed(dp)).toLocaleString('es-ES'); }
+
+const monthlyFactors = [7.5,7.5,8.5,9.0,9.5,9.5,10.5,10.0,8.5,8.5,6.5,4.0];
+
+function calculate(){
+  const consumAnual = Number(document.getElementById('consumAnual').value) || 0;
+  const percentAuto = Number(document.getElementById('percentAuto').value) / 100 || 0;
+  const rendimentSpec = Number(document.getElementById('rendimentSpec').value) || 1038;
+  const panelWp = Number(document.getElementById('panelWp').value) || 400;
+  const panelArea = Number(document.getElementById('panelArea').value) || 1.85;
+  const consumNit = Number(document.getElementById('consumNit').value) || 0;
+  const nits = Number(document.getElementById('nits').value) || 1;
+  const priceKwh = Number(document.getElementById('priceKwh').value) || 0.2;
+  const priceModule = Number(document.getElementById('priceModule').value) || 1867.49;
+  const moduleKwh = Number(document.getElementById('moduleKwh').value) || 5.1;
+
+  const consumObj = consumAnual * percentAuto;
+  const kWp_required = consumObj / rendimentSpec;
+  const panelsNeeded = Math.ceil((kWp_required*1000) / panelWp);
+  const installed_kWp = (panelsNeeded * panelWp) / 1000;
+  const areaNeeded = panelsNeeded * panelArea;
+  const productionAnnual = installed_kWp * rendimentSpec;
+
+  const energyNeed = consumNit * nits;
+  const DoD = 0.9, roundTrip = 0.9;
+  const batteryCapacityInstalled = energyNeed / (DoD * roundTrip);
+  const modulesNeeded = Math.ceil(batteryCapacityInstalled / moduleKwh);
+  const batteryCapacityRounded = modulesNeeded * moduleKwh;
+
+  // COSTOS amb trams realistes
+  let costPanels = 0;
+  if (installed_kWp <= 5) {
+    costPanels = installed_kWp * 1400;
+  } else if (installed_kWp <= 10) {
+    costPanels = installed_kWp * 1200;
+  } else {
+    costPanels = installed_kWp * 1000;
+  }
+  const fixedCosts = 800;
+  const costBatteries = modulesNeeded * priceModule;
+  const totalCost = costPanels + costBatteries + fixedCosts;
+
+  const energyDisplaced = Math.min(productionAnnual, consumObj);
+  const annualSavings = energyDisplaced * priceKwh;
+  const paybackYears = annualSavings > 0 ? (totalCost / annualSavings) : Infinity;
+
+  document.getElementById('results').style.display = 'grid';
+  document.getElementById('resKw').innerText = fmt(installed_kWp, 2) + ' kWp';
+  document.getElementById('resPanels').innerText = panelsNeeded + ' unitats';
+  document.getElementById('resArea').innerText = fmt(areaNeeded,1) + ' m²';
+  document.getElementById('resBat').innerText = fmt(batteryCapacityRounded,2) + ' kWh (' + modulesNeeded + ' mòduls)';
+  document.getElementById('resCost').innerText = fmt(totalCost,2) + ' €';
+  document.getElementById('resPay').innerText = (isFinite(paybackYears) ? fmt(paybackYears,1) : '—') + ' anys';
+
+  const summary = [];
+  summary.push('Estimació per al projecte solar');
+  summary.push('Consum anual: ' + fmt(consumAnual) + ' kWh');
+  summary.push('Percentatge a cobrir: ' + Math.round(percentAuto*100) + '% → ' + fmt(consumObj) + ' kWh/any');
+  summary.push('Potència a instal·lar: ' + fmt(installed_kWp,2) + ' kWp (' + panelsNeeded + ' panells de ' + panelWp + ' Wp)');
+  summary.push('Producció anual estimada: ' + fmt(productionAnnual) + ' kWh');
+  summary.push('Bateries recomanades: ' + fmt(batteryCapacityRounded,2) + ' kWh (' + modulesNeeded + ' mòduls)');
+  summary.push('Cost estimat total: ' + fmt(totalCost,2) + ' € (panells ' + fmt(costPanels,2) + ' €, bateries ' + fmt(costBatteries,2) + ' €)');
+  summary.push('Estalvi anual aproximat: ' + fmt(annualSavings,2) + ' €');
+  summary.push('Amortització: ' + (isFinite(paybackYears) ? fmt(paybackYears,1) + ' anys' : 'N/A'));
+  document.getElementById('summary').value = summary.join('\n');
+
+  drawChart(installed_kWp, productionAnnual, consumAnual, rendimentSpec);
+
+  window._lastCSV = {
+    headers: ['Item','Value'],
+    rows: [
+      ['Consum anual (kWh)', consumAnual],
+      ['Percentatge autoconsum (%)', percentAuto*100],
+      ['kWp instal·lat', installed_kWp],
+      ['Panells necessaris', panelsNeeded],
+      ['Area total (m2)', areaNeeded],
+      ['Producció anual (kWh)', productionAnnual],
+      ['Bateries instal·lades (kWh)', batteryCapacityRounded],
+      ['Mòduls bateria', modulesNeeded],
+      ['Cost estimat total (€)', totalCost],
+      ['Estalvi anual (€)', annualSavings],
+      ['Payback (anys)', isFinite(paybackYears) ? paybackYears : 'N/A']
+    ]
+  };
+}
+
+const canvas = document.getElementById('chartProd');
+const ctx = canvas.getContext('2d');
+function drawChart(installed_kWp, productionAnnual, consumAnual){
+  const production = monthlyFactors.map(f => productionAnnual * (f/100));
+  const consumptionMonthly = monthlyFactors.map(f => consumAnual * (f/100));
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const DPR = window.devicePixelRatio || 1;
+  if(canvas.width !== canvas.clientWidth * DPR){
+    canvas.width = canvas.clientWidth * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+  }
+  const W = canvas.width, H = canvas.height;
+  const padding = 40 * DPR;
+  const chartW = W - padding - 20*DPR;
+  const chartH = H - padding - 20*DPR;
+  const maxY = Math.max(...production, ...consumptionMonthly) * 1.1;
+  const barWidth = chartW / 30;
+  ctx.save();
+  ctx.scale(DPR, DPR);
+  ctx.font = '12px Inter, Arial';
+  for(let i=0;i<12;i++){
+    const mx = padding/ DPR + i*(chartW/12) + 6;
+    const prodH = (production[i]/maxY) * (chartH/ DPR);
+    const consH = (consumptionMonthly[i]/maxY) * (chartH/ DPR);
+    ctx.fillStyle = '#60a5fa';
+    ctx.fillRect(mx, 20 + (chartH/ DPR) - prodH, barWidth, prodH);
+    ctx.fillStyle = '#10b981';
+    ctx.fillRect(mx + barWidth + 4, 20 + (chartH/ DPR) - consH, barWidth/1.1, consH);
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(['Gen','Feb','Mar','Abr','Mai','Jun','Jul','Ago','Set','Oct','Nov','Des'][i], mx, 20 + chartH/ DPR + 16);
+  }
+  ctx.restore();
+}
+
+document.getElementById('calcBtn').addEventListener('click', calculate);
+document.getElementById('copyBtn').addEventListener('click', ()=>navigator.clipboard.writeText(document.getElementById('summary').value).then(()=> alert('Resum copiat.')));
+document.getElementById('downloadCSV').addEventListener('click', ()=>{
+  const data = window._lastCSV;
+  if(!data){ alert('Fes un càlcul primer.'); return; }
+  const rows = [data.headers.join(',')].concat(data.rows.map(r => r.map(v => `"${v}"`).join(',')));
+  const blob = new Blob([rows.join('\n')], {type: 'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'estimacio_solar.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+calculate();
+</script>
+</body>
+</html>
